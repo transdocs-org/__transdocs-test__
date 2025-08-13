@@ -1,52 +1,52 @@
-# Configuring Chroma Collections
+# 配置 Chroma 集合
 
-Chroma collections have a `configuration` that determines how their embeddings index is constructed and used. We use default values for these index configurations that should give you great performance for most use cases out-of-the-box. 
+Chroma 集合具有一个 `configuration`（配置），用于决定其嵌入索引的构建和使用方式。我们为这些索引配置提供了默认值，在大多数使用场景下，开箱即用即可获得出色的性能。
 
-The [embedding function](../embeddings/embedding-functions) you choose to use in your collection also affects its index construction, and is included in the configuration.
+您在集合中选择使用的[嵌入函数](../embeddings/embedding-functions)也会影响其索引的构建，并包含在配置中。
 
-When you create a collection, you can customize these index configuration values for different data, accuracy and performance requirements. Some query-time configurations can also be customized after the collection's creation using the `.modify` function. 
+创建集合时，您可以根据不同的数据、准确性和性能需求自定义这些索引配置值。某些查询时的配置也可以在集合创建后通过 `.modify` 函数进行修改。
 
 {% CustomTabs %}
 
-{% Tab label="Single Node" %}
+{% Tab label="单节点" %}
 
-## HNSW Index Configuration
+## HNSW 索引配置
 
-In Single Node Chroma collections, we use an HNSW (Hierarchical Navigable Small World) index to perform approximate nearest neighbor (ANN) search.
+在单节点 Chroma 集合中，我们使用 HNSW（Hierarchical Navigable Small World，分层可导航小世界）索引来执行近似最近邻（ANN）搜索。
 
 {% Accordion %}
 
-{% AccordionItem label="What is an HNSW index?" %}
+{% AccordionItem label="什么是 HNSW 索引？" %}
 
-An HNSW (Hierarchical Navigable Small World) index is a graph-based data structure designed for efficient approximate nearest neighbor search in high-dimensional vector spaces. It works by constructing a multi-layered graph where each layer contains a subset of the data points, with higher layers being sparser and serving as "highways" for faster navigation. The algorithm builds connections between nearby points at each layer, creating "small-world" properties that allow for efficient search complexity. During search, the algorithm starts at the top layer and navigates toward the query point in the embedding space, then moves down through successive layers, refining the search at each level until it finds the final nearest neighbors.
+HNSW（分层可导航小世界）索引是一种基于图的数据结构，专为在高维向量空间中高效执行近似最近邻搜索而设计。其工作原理是构建一个多层图结构，每一层包含数据点的一个子集，较高层更稀疏，作为“高速公路”实现更快的导航。该算法在每一层中构建邻近点之间的连接，形成“小世界”特性，从而实现高效的搜索复杂度。搜索时，算法从顶层开始，向嵌入空间中的查询点方向导航，然后逐层向下移动，在每一层细化搜索，直到找到最终的最近邻。
 
 {% /AccordionItem %}
 
 {% /Accordion %}
 
-The HNSW index parameters include:
+HNSW 索引参数包括：
 
-* `space` defines the distance function of the embedding space, and hence how similarity is defined. The default is `l2` (squared L2 norm), and other possible values are `cosine` (cosine similarity), and `ip` (inner product).
+* `space` 定义嵌入空间的距离函数，从而决定相似性的定义方式。默认值为 `l2`（平方 L2 范数），其他可选值包括 `cosine`（余弦相似性）和 `ip`（内积）。
 
-| Distance          | parameter |                                                                                                                                                   Equation |                                                                          Intuition                                                                          |
+| 距离              | parameter |                                                                                                                                                   公式 |                                                                          直觉                                                                          |
 | ----------------- | :-------: |-----------------------------------------------------------------------------------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------------------------------------------------------------------:|
-| Squared L2        |   `l2`    |                                                                                                {% Latex %} d =  \\sum\\left(A_i-B_i\\right)^2 {% /Latex %} |                       measures absolute geometric distance between vectors, making it suitable when you want true spatial proximity.                        |
-| Inner product     |   `ip`    |                                                                                     {% Latex %} d = 1.0 - \\sum\\left(A_i \\times B_i\\right) {% /Latex %} |             focuses on vector alignment and magnitude, often used for recommendation systems where larger values indicate stronger preferences              |
-| Cosine similarity | `cosine`  | {% Latex %} d = 1.0 - \\frac{\\sum\\left(A_i \\times B_i\\right)}{\\sqrt{\\sum\\left(A_i^2\\right)} \\cdot \\sqrt{\\sum\\left(B_i^2\\right)}} {% /Latex %} | measures only the angle between vectors (ignoring magnitude), making it ideal for text embeddings or cases where you care about direction rather than scale |
+| 平方 L2           |   `l2`    |                                                                                                {% Latex %} d =  \\sum\\left(A_i-B_i\\right)^2 {% /Latex %} |                       衡量向量之间的绝对几何距离，适用于需要真实空间接近性的场景。                        |
+| 内积              |   `ip`    |                                                                                     {% Latex %} d = 1.0 - \\sum\\left(A_i \\times B_i\\right) {% /Latex %} |             关注向量的方向和大小，常用于推荐系统，其中较大的值表示更强的偏好。              |
+| 余弦相似性        | `cosine`  | {% Latex %} d = 1.0 - \\frac{\\sum\\left(A_i \\times B_i\\right)}{\\sqrt{\\sum\\left(A_i^2\\right)} \\cdot \\sqrt{\\sum\\left(B_i^2\\right)}} {% /Latex %} | 仅衡量向量之间的夹角（忽略大小），适用于文本嵌入或关心方向而非尺度的场景。 |
 
 {% Banner type="note" %}
-You should make sure that the `space` you choose is supported by your collection's embedding function. Every Chroma embedding function specifies its default space and a list of supported spaces.
+您应确保所选的 `space` 受集合的嵌入函数支持。每个 Chroma 嵌入函数都会指定其默认空间和支持的空间列表。
 {% /Banner %}
 
-* `ef_construction` determines the size of the candidate list used to select neighbors during index creation. A higher value improves index quality at the cost of more memory and time, while a lower value speeds up construction with reduced accuracy. The default value is `100`.
-* `ef_search` determines the size of the dynamic candidate list used while searching for the nearest neighbors. A higher value improves recall and accuracy by exploring more potential neighbors but increases query time and computational cost, while a lower value results in faster but less accurate searches. The default value is `100`. This field can be modified after creation.
-* `max_neighbors` is the maximum number of neighbors (connections) that each node in the graph can have during the construction of the index. A higher value results in a denser graph, leading to better recall and accuracy during searches but increases memory usage and construction time. A lower value creates a sparser graph, reducing memory usage and construction time but at the cost of lower search accuracy and recall. The default value is `16`.
-* `num_threads` specifies the number of threads to use during index construction or search operations. The default value is `multiprocessing.cpu_count()` (available CPU cores). This field can be modified after creation.
-* `batch_size` controls the number of vectors to process in each batch during index operations. The default value is `100`. This field can be modified after creation.
-* `sync_threshold` determines when to synchronize the index with persistent storage. The default value is `1000`. This field can be modified after creation.
-* `resize_factor` controls how much the index grows when it needs to be resized. The default value is `1.2`. This field can be modified after creation.
+* `ef_construction` 决定在索引创建过程中用于选择邻居的候选列表大小。值越高，索引质量越好，但会消耗更多内存和时间；值越低，构建速度更快，但准确性降低。默认值为 `100`。
+* `ef_search` 决定在搜索最近邻时使用的动态候选列表大小。值越高，通过探索更多潜在邻居来提高召回率和准确性，但会增加查询时间和计算开销；值越低，搜索更快但准确性较低。默认值为 `100`。此字段可在创建后修改。
+* `max_neighbors` 是索引构建过程中图中每个节点最多可拥有的邻居（连接）数量。值越高，图越密集，搜索时召回率和准确性更高，但会增加内存使用和构建时间；值越低，图越稀疏，减少内存使用和构建时间，但搜索准确性和召回率降低。默认值为 `16`。
+* `num_threads` 指定索引构建或搜索操作中使用的线程数。默认值为 `multiprocessing.cpu_count()`（可用 CPU 核心数）。此字段可在创建后修改。
+* `batch_size` 控制索引操作期间每批处理的向量数量。默认值为 `100`。此字段可在创建后修改。
+* `sync_threshold` 决定何时将索引与持久化存储同步。默认值为 `1000`。此字段可在创建后修改。
+* `resize_factor` 控制索引需要调整大小时的增长幅度。默认值为 `1.2`。此字段可在创建后修改。
 
-For example, here we create a collection with customized values for `space` and `ef_construction`:
+例如，以下代码创建一个对 `space` 和 `ef_construction` 进行了自定义的集合：
 
 {% TabbedCodeBlock %}
 
@@ -82,90 +82,89 @@ collection = await client.createCollection({
 
 {% /TabbedCodeBlock %}
 
-### Fine-Tuning HNSW Parameters
+### 微调 HNSW 参数
 
-In the context of approximate nearest neighbors search, **recall** refers to how many of the true nearest neighbors were retrieved.
+在近似最近邻搜索的上下文中，**召回率（recall）** 指的是检索到的真实最近邻所占的比例。
 
-Increasing `ef_search` normally improves recall, but slows down query time. Similarly, increasing `ef_construction` improves recall, but increases the memory usage and runtime when creating the index.
+通常，增加 `ef_search` 可以提高召回率，但会减慢查询速度。类似地，增加 `ef_construction` 可以提高召回率，但会增加索引创建时的内存占用和运行时间。
 
-Choosing the right values for your HNSW parameters depends on your data, embedding function, and requirements for recall, and performance. You may need to experiment with different construction and search values to find the values that meet your requirements.
+选择合适的 HNSW 参数值取决于您的数据、嵌入函数以及对召回率和性能的需求。您可能需要尝试不同的构建和搜索值，以找到满足需求的最佳组合。
 
-For example, for a dataset with 50,000 embeddings of 2048 dimensions, generated by
+例如，对于一个包含 50,000 个 2048 维嵌入的数据集，由以下代码生成：
 ```python
 embeddings = np.random.randn(50000, 2048).astype(np.float32).tolist()
 ```
 
-we set up two Chroma collections:
-* The first is configured with `ef_search: 10`. When querying using a specific embedding from the set (with `id = 1`), the query takes `0.00529` seconds, and we get back embeddings with distances:
+我们设置了两个 Chroma 集合：
+* 第一个集合配置为 `ef_search: 10`。当使用集合中的特定嵌入（`id = 1`）进行查询时，查询耗时 `0.00529` 秒，返回的嵌入距离为：
 
 ```
 [3629.019775390625, 3666.576904296875, 3684.57080078125]
 ```
 
-* The second collection is configured with `ef_search: 100` and `ef_construction: 1000`. When issuing the same query, this time it takes `0.00753` seconds (about 42% slower), but with better results as measured by their distance:
+* 第二个集合配置为 `ef_search: 100` 和 `ef_construction: 1000`。执行相同查询时，耗时 `0.00753` 秒（约慢 42%），但结果更优，距离值如下：
 
 ```
 [0.0, 3620.593994140625, 3623.275390625]
 ```
-In this example, when querying with the test embedding (`id=1`), the first collection failed to find the embedding itself, despite it being in the collection (where it should have appeared as a result with a distance of `0.0`). The second collection, while slightly slower, successfully found the query embedding itself (shown by the `0.0` distance) and returned closer neighbors overall, demonstrating better accuracy at the cost of performance.
-
+在此示例中，当使用测试嵌入（`id=1`）查询时，第一个集合未能找到嵌入自身（尽管它存在于集合中，应以 `0.0` 距离返回）。而第二个集合虽然稍慢，但成功找到了查询嵌入自身（由 `0.0` 距离体现），并返回了整体更接近的邻居，展示了在性能代价下更高的准确性。
 
 {% /Tab %}
 
-{% Tab label="Distributed and Chroma Cloud" %}
+{% Tab label="分布式和 Chroma Cloud" %}
 
-## SPANN Index Configuration
+## SPANN 索引配置
 
-In Distributed Chroma and Chroma Cloud collections, we use a SPANN (Spacial Approximate Nearest Neighbors) index to perform approximate nearest neighbor (ANN) search.
+在分布式 Chroma 和 Chroma Cloud 集合中，我们使用 SPANN（Spacial Approximate Nearest Neighbors，空间近似最近邻）索引来执行近似最近邻（ANN）搜索。
 
-{% Video link="https://www.youtube.com/embed/1QdwYWd3S1g" title="SPANN Video" / %}
+{% Video link="https://www.youtube.com/embed/1QdwYWd3S1g" title="SPANN 视频" / %}
 
 {% Accordion %}
 
-{% AccordionItem label="What is a SPANN index?" %}
+{% AccordionItem label="什么是 SPANN 索引？" %}
 
-A SPANN index is a data structure used to efficiently find approximate nearest neighbors in large sets of high-dimensional vectors. It works by dividing the set into broad clusters (so we can ignore most of the data during search) and then building efficient, smaller indexes within each cluster for fast local lookups. This two-level approach helps reduce both memory use and search time, making it practical to search billions of vectors stored even on hard drives or separate machines in a distributed system.
+SPANN 索引是一种数据结构，用于在大规模高维向量集合中高效查找近似最近邻。其工作原理是将数据集划分为多个大类（以便在搜索时忽略大部分数据），然后在每个类内部构建高效的小型索引以实现快速局部查找。这种两级结构有助于减少内存使用和搜索时间，使得在硬盘或分布式系统的独立机器上存储数十亿向量并进行搜索成为可能。
 
 {% /AccordionItem %}
 
 {% /Accordion %}
 
 {% Banner type="note" %}
-We currently don't allow customization or modification of SPANN configuration. If you set these values they will be ignored by the server.
+目前我们不允许自定义或修改 SPANN 配置。如果您设置了这些值，服务器将忽略它们。
 {% /Banner %}
 
-The SPANN index parameters include:
+SPANN 索引参数包括：
 
-* `space` defines the distance function of the embedding space, and hence how similarity is defined. The default is `l2` (squared L2 norm), and other possible values are `cosine` (cosine similarity), and `ip` (inner product).
+* `space` 定义嵌入空间的距离函数，从而决定相似性的定义方式。默认值为 `l2`（平方 L2 范数），其他可选值包括 `cosine`（余弦相似性）和 `ip`（内积）。
 
-| Distance          | parameter |                                                                                                                                                   Equation |                                                                          Intuition                                                                          |
+| 距离              | parameter |                                                                                                                                                   公式 |                                                                          直觉                                                                          |
 | ----------------- | :-------: |-----------------------------------------------------------------------------------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------------------------------------------------------------------:|
-| Squared L2        |   `l2`    |                                                                                                {% Latex %} d =  \\sum\\left(A_i-B_i\\right)^2 {% /Latex %} |                       measures absolute geometric distance between vectors, making it suitable when you want true spatial proximity.                        |
-| Inner product     |   `ip`    |                                                                                     {% Latex %} d = 1.0 - \\sum\\left(A_i \\times B_i\\right) {% /Latex %} |             focuses on vector alignment and magnitude, often used for recommendation systems where larger values indicate stronger preferences              |
-| Cosine similarity | `cosine`  | {% Latex %} d = 1.0 - \\frac{\\sum\\left(A_i \\times B_i\\right)}{\\sqrt{\\sum\\left(A_i^2\\right)} \\cdot \\sqrt{\\sum\\left(B_i^2\\right)}} {% /Latex %} | measures only the angle between vectors (ignoring magnitude), making it ideal for text embeddings or cases where you care about direction rather than scale |
+| 平方 L2           |   `l2`    |                                                                                                {% Latex %} d =  \\sum\\left(A_i-B_i\\right)^2 {% /Latex %} |                       衡量向量之间的绝对几何距离，适用于需要真实空间接近性的场景。                        |
+| 内积              |   `ip`    |                                                                                     {% Latex %} d = 1.0 - \\sum\\left(A_i \\times B_i\\right) {% /Latex %} |             关注向量的方向和大小，常用于推荐系统，其中较大的值表示更强的偏好。              |
+| 余弦相似性        | `cosine`  | {% Latex %} d = 1.0 - \\frac{\\sum\\left(A_i \\times B_i\\right)}{\\sqrt{\\sum\\left(A_i^2\\right)} \\cdot \\sqrt{\\sum\\left(B_i^2\\right)}} {% /Latex %} | 仅衡量向量之间的夹角（忽略大小），适用于文本嵌入或关心方向而非尺度的场景。 |
 
-* `search_nprobe` is the number of centers that are probed for a query. The higher the value the more accurate the result will be. The query response time also increases as `search_nprobe` increases. Recommended values are 64/128. We don't allow setting a value higher than 128 today. The default value is 64. 
-* `write_nprobe` is the same as `search_nprobe` but for the index construction phase. It is the number of centers searched when appending or reassigning a point. It has the same limits as `search_nprobe`. The default value is 64. 
-* `ef_construction` determines the size of the candidate list used to select neighbors during index creation. A higher value improves index quality at the cost of more memory and time, while a lower value speeds up construction with reduced accuracy. The default value is 200. 
-* `ef_search` determines the size of the dynamic candidate list used while searching for the nearest neighbors. A higher value improves recall and accuracy by exploring more potential neighbors but increases query time and computational cost, while a lower value results in faster but less accurate searches. The default value is 200. 
-* `max_neighbors` defines the maximum number of neighbors for a node. The default value is 64. 
-* `reassign_neighbor_count` is the number of closest neighboring clusters of a split cluster whose points are considered for reassignment. The default value is 64.
+* `search_nprobe` 是查询时探测的中心数量。值越高，结果越准确，但查询响应时间也随之增加。推荐值为 64 或 128。目前不允许设置高于 128 的值。默认值为 64。
+* `write_nprobe` 与 `search_nprobe` 类似，但用于索引构建阶段。它是在追加或重新分配点时搜索的中心数量。其限制与 `search_nprobe` 相同。默认值为 64。
+* `ef_construction` 决定在索引创建过程中用于选择邻居的候选列表大小。值越高，索引质量越好，但会消耗更多内存和时间；值越低，构建速度更快，但准确性降低。默认值为 200。
+* `ef_search` 决定在搜索最近邻时使用的动态候选列表大小。值越高，通过探索更多潜在邻居来提高召回率和准确性，但会增加查询时间和计算开销；值越低，搜索更快但准确性较低。默认值为 200。
+* `max_neighbors` 定义节点的最大邻居数。默认值为 64。
+* `reassign_neighbor_count` 是分裂簇的最近邻簇数量，这些簇中的点会被考虑重新分配。默认值为 64。
 
 {% /Tab %}
 
 {% /CustomTabs %}
 
-## Embedding Function Configuration
+## 嵌入函数配置
 
-The embedding function you choose when creating a collection, along with the parameters you instantiate it with, is persisted in the collection's configuration. This allows us to reconstruct it correctly when you use collection across different clients. 
+创建集合时选择的嵌入函数及其实例化参数会持久化保存在集合的配置中。这使得在不同客户端中使用集合时，我们可以正确重建该函数。
 
-You can set your embedding function as an argument to the "create" methods, or directly in the configuration:
+您可以在“创建”方法中将嵌入函数作为参数传入，或直接在配置中设置：
 
 {% Tabs %}
 
 {% Tab label="python" %}
 
-Install the `openai` and `cohere` packages:
+安装 `openai` 和 `cohere` 包：
 
 {% TabbedUseCaseCodeBlock language="Terminal" %}
 
@@ -189,13 +188,13 @@ uv pip install openai cohere
 
 {% /TabbedUseCaseCodeBlock %}
 
-Creating collections with embedding function and custom configuration:
+使用嵌入函数和自定义配置创建集合：
 
 ```python
 import os
 from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction, CohereEmbeddingFunction
 
-# Using the `embedding_function` argument
+# 使用 `embedding_function` 参数
 openai_collection = client.create_collection(
     name="my_openai_collection",
     embedding_function=OpenAIEmbeddingFunction(
@@ -204,7 +203,7 @@ openai_collection = client.create_collection(
     configuration={"hnsw": {"space": "cosine"}}
 )
 
-# Setting `embedding_function` in the collection's `configuration`
+# 在集合的 `configuration` 中设置 `embedding_function`
 cohere_collection = client.get_or_create_collection(
     name="my_cohere_collection",
     configuration={
@@ -217,9 +216,9 @@ cohere_collection = client.get_or_create_collection(
 )
 ```
 
-**Note:** Many embedding functions require API keys to interface with the third party embeddings providers. The Chroma embedding functions will automatically look for the standard environment variable used to store a provider's API key. For example, the Chroma `OpenAIEmbeddingFunction` will set its `api_key` argument to the value of the `OPENAI_API_KEY` environment variable if it is set.
+**注意：** 许多嵌入函数需要 API 密钥来对接第三方嵌入服务提供商。Chroma 的嵌入函数会自动查找用于存储提供商 API 密钥的标准环境变量。例如，Chroma 的 `OpenAIEmbeddingFunction` 会在 `OPENAI_API_KEY` 环境变量被设置时，将其 `api_key` 参数设为该变量的值。
 
-If your API key is stored in an environment variable with a non-standard name, you can configure your embedding function to use your custom environment variable by setting the `api_key_env_var` argument. In order for the embedding function to operate correctly, you will have to set this variable in every environment where you use your collection.
+如果您的 API 密钥存储在非标准名称的环境变量中，您可以通过设置 `api_key_env_var` 参数，将嵌入函数配置为使用自定义环境变量。为了使嵌入函数正常工作，您必须在使用集合的每个环境中设置此变量。
 
 ```python
 cohere_ef = CohereEmbeddingFunction(
@@ -233,7 +232,7 @@ cohere_ef = CohereEmbeddingFunction(
 
 {% Tab label="typescript" %}
 
-Install the `@chroma-core/openai` and `@chroma-core/cohere` packages:
+安装 `@chroma-core/openai` 和 `@chroma-core/cohere` 包：
 
 {% TabbedUseCaseCodeBlock language="Terminal" %}
 
@@ -263,13 +262,13 @@ bun add @chroma-core/openai @chroma-core/cohere
 
 {% /TabbedUseCaseCodeBlock %}
 
-Creating collections with embedding function and custom configuration:
+使用嵌入函数和自定义配置创建集合：
 
 ```typescript
 import { OpenAIEmbeddingFunction } from "@chroma-core/openai";
 import { CohereEmbeddingFunction } from "@chroma-core/cohere"
 
-// Using the `embedding_function` argument
+// 使用 `embedding_function` 参数
 openAICollection = client.createCollection({
     name: "my_openai_collection",
     embedding_function: new OpenAIEmbeddingFunction({
@@ -278,7 +277,7 @@ openAICollection = client.createCollection({
     configuration: { hnsw: { space: "cosine" } }
 });
 
-// Setting `embedding_function` in the collection's `configuration`
+// 在集合的 `configuration` 中设置 `embedding_function`
 cohereCollection = client.getOrCreate_collection({
     name: "my_cohere_collection",
     configuration: {
@@ -291,9 +290,9 @@ cohereCollection = client.getOrCreate_collection({
 })
 ```
 
-**Note:** Many embedding functions require API keys to interface with the third party embeddings providers. The Chroma embedding functions will automatically look for the standard environment variable used to store a provider's API key. For example, the Chroma `OpenAIEmbeddingFunction` will set its `api_key` argument to the value of the `OPENAI_API_KEY` environment variable if it is set.
+**注意：** 许多嵌入函数需要 API 密钥来对接第三方嵌入服务提供商。Chroma 的嵌入函数会自动查找用于存储提供商 API 密钥的标准环境变量。例如，Chroma 的 `OpenAIEmbeddingFunction` 会在 `OPENAI_API_KEY` 环境变量被设置时，将其 `api_key` 参数设为该变量的值。
 
-If your API key is stored in an environment variable with a non-standard name, you can configure your embedding function to use your custom environment variable by setting the `apiKeyEnvVar` argument. In order for the embedding function to operate correctly, you will have to set this variable in every environment where you use your collection.
+如果您的 API 密钥存储在非标准名称的环境变量中，您可以通过设置 `apiKeyEnvVar` 参数，将嵌入函数配置为使用自定义环境变量。为了使嵌入函数正常工作，您必须在使用集合的每个环境中设置此变量。
 
 ```typescript
 cohere_ef = CohereEmbeddingFunction({
